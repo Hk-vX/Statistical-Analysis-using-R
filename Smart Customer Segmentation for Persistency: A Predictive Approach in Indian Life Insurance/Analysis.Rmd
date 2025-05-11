@@ -1,0 +1,192 @@
+---
+title: 'Analyzing Retail Banking Metrics Based on Agent and Payment Characteristics'
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(readxl)
+library(caret)
+library(class)
+library(e1071)
+library(rpart)
+library(rpart.plot)
+library(factoextra)
+```
+
+## 1. Load and Check Data
+
+```{r}
+# Load the dataset
+data <- read_excel("Business.xlsx", sheet = 2)
+
+# Basic checks
+print(head(data))
+print(colnames(data))
+print(dim(data))
+```
+
+## 2. Data Preparation and Conversion
+
+```{r}
+# Clean column names
+names(data) <- str_trim(names(data))
+
+# Convert relevant columns to factors
+data$Agent_Cat <- as.factor(data$Agent_Cat)
+data$Agent_Channel <- as.factor(data$Agent_Channel)
+data$Mode_of_Pay <- as.factor(data$Mode_of_Pay)
+data$ECS_Status <- as.factor(data$ECS_Status)
+data$City_Tier <- as.factor(data$City_Tier)
+data$Fund_Type <- as.factor(data$Fund_Type)
+
+# View cleaned data
+print(head(data))
+```
+
+## 3. Exploratory Data Analysis (EDA)
+
+```{r}
+# Premium Amount by Agent Category
+ggplot(data, aes(x = Agent_Cat, y = Premium_Amt, fill = Agent_Cat)) +
+  geom_boxplot() +
+  labs(title = "Premium Amount by Agent Category", y = "Premium Amount", x = "Agent Category")
+
+# Cibil Score by Mode of Payment
+ggplot(data, aes(x = Mode_of_Pay, y = Cibil_Score, fill = Mode_of_Pay)) +
+  geom_boxplot() +
+  labs(title = "Cibil Score by Mode of Payment", y = "Cibil Score", x = "Mode of Payment")
+```
+
+## 4. Linear Regression (Supervised Learning)
+
+```{r}
+# Linear model to predict Cibil_Score
+model_lm <- lm(Cibil_Score ~ Premium_Amt + Mean_NDPD + Agent_Cat + Mode_of_Pay + City_Tier, data = data)
+summary(model_lm)
+```
+
+## 5. Logistic Regression (Supervised Learning)
+
+```{r}
+# Create binary ECS Status only if ECS_Status exists and is not NA
+if (!is.null(data$ECS_Status) && any(!is.na(data$ECS_Status))) {
+
+  # Make sure ECS_Status_Binary has 0 and 1
+  data$ECS_Status_Binary <- ifelse(data$ECS_Status == "Active", 1, 0)
+  
+  # Drop rows with NA in important columns
+  data_logit <- data %>%
+    filter(!is.na(ECS_Status_Binary), !is.na(Premium_Amt), !is.na(Mean_NDPD), !is.na(Cibil_Score))
+  
+  # Check if there are both classes present
+  if (length(unique(data_logit$ECS_Status_Binary)) > 1) {
+    
+    # Logistic regression model
+    model_logit <- glm(ECS_Status_Binary ~ Premium_Amt + Mean_NDPD + Cibil_Score + Agent_Cat + Mode_of_Pay + City_Tier,
+                       data = data_logit, family = binomial)
+    
+    # Summary
+    summary(model_logit)
+    
+    # Predict probabilities
+    pred_probs <- predict(model_logit, type = "response")
+    
+    # Create predicted labels
+    pred_labels <- ifelse(pred_probs > 0.5, 1, 0)
+    
+    # Confusion Matrix only if both classes are present
+    if (length(unique(pred_labels)) > 1 & length(unique(data_logit$ECS_Status_Binary)) > 1) {
+      confusionMatrix(as.factor(pred_labels), as.factor(data_logit$ECS_Status_Binary))
+    } else {
+      print("Not enough classes in predicted or actual labels to compute confusion matrix.")
+    }
+    
+  } else {
+    print("Only one class in ECS_Status_Binary. Logistic Regression is not meaningful.")
+  }
+  
+} else {
+  print("ECS_Status column is missing or empty. Skipping Logistic Regression.")
+}
+```
+
+## 6. K-Nearest Neighbors (KNN Classification)
+
+```{r}
+# Prepare data for KNN
+df_knn <- data %>%
+  mutate(Agent_Cat = as.numeric(Agent_Cat),
+         Agent_Channel = as.numeric(Agent_Channel),
+         Mode_of_Pay = as.numeric(Mode_of_Pay),
+         ECS_Status = as.numeric(ECS_Status),
+         City_Tier = as.numeric(City_Tier),
+         Fund_Type = as.numeric(Fund_Type)) %>%
+  select(Premium_Amt, Mean_NDPD, Cibil_Score, Agent_Cat, Mode_of_Pay) %>%
+  drop_na()
+
+# Scale data
+df_knn <- scale(df_knn)
+
+# Split into training and testing sets
+set.seed(123)
+train_idx <- sample(nrow(df_knn), 0.7 * nrow(df_knn))
+train <- df_knn[train_idx, ]
+test <- df_knn[-train_idx, ]
+
+# Train labels
+train_labels <- data$Agent_Cat[train_idx]
+test_labels <- data$Agent_Cat[-train_idx]
+
+# KNN model
+knn_pred <- knn(train, test, train_labels, k = 5)
+
+# Confusion matrix
+confusionMatrix(knn_pred, test_labels)
+```
+
+## 7. Decision Tree
+
+```{r}
+# Build decision tree model
+tree_model <- rpart(Agent_Cat ~ Premium_Amt + Mean_NDPD + Cibil_Score + Mode_of_Pay + City_Tier, 
+                    data = data, method = "class")
+
+# Plot decision tree
+rpart.plot(tree_model, type = 2, extra = 104, fallen.leaves = TRUE)
+```
+
+## 8. Cluster Analysis (Unsupervised Learning)
+
+```{r}
+# Prepare data for clustering
+df_cluster <- data %>%
+  select(Premium_Amt, Mean_NDPD, Cibil_Score) %>%
+  drop_na()
+
+# Scale the data
+df_scaled <- scale(df_cluster)
+
+# KMeans clustering
+set.seed(123)
+kmeans_model <- kmeans(df_scaled, centers = 3)
+
+# Assign cluster labels
+data$Cluster <- factor(kmeans_model$cluster)
+
+# Plot clusters
+fviz_cluster(kmeans_model, data = df_scaled)
+```
+
+## 9. Conclusion
+
+This case study applied both supervised and unsupervised learning methods:
+
+- **Linear Regression** analyzed predictors of credit scores (Cibil Score).
+- **Logistic Regression** modeled probability of active ECS_Status.
+- **KNN Classification** predicted Agent Categories.
+- **Decision Trees** visualized customer segmentation rules.
+- **Clustering** revealed hidden groups based on payment and credit behavior.
