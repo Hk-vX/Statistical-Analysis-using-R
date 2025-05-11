@@ -1,0 +1,194 @@
+---
+title: "Student Debt Analysis"
+---
+
+```{r setup, include=FALSE}
+library(rvest)
+library(dplyr)
+library(stringr)
+library(readr)
+library(xml2)
+library(ggplot2)
+library(broom)
+library(tidyr)
+library(corrplot)
+library(scales)
+library(forcats)
+```
+
+## Load and Preview Data
+
+```{r}
+data <- read_csv('FieldofStudy.csv')
+names(data) <- make.names(names(data))
+knitr::kable(head(data, 10))
+```
+
+## Data Cleaning
+
+```{r}
+reg_data <- data %>%
+select(MEDIAN_DEBT = DEBT_ALL_STGP_ANY_MDN,
+       PROGRAM = CIPDESC,
+       CRED_LEVEL = CREDLEV,
+MEAN_DEBT = DEBT_ALL_STGP_ANY_MEAN,
+COUNT = DEBT_ALL_STGP_ANY_N) %>%
+  filter(!is.na(MEDIAN_DEBT),!is.na(CRED_LEVEL),!is.na(MEAN_DEBT))
+
+reg_data$MEDIAN_DEBT <- as.numeric(reg_data$MEDIAN_DEBT)
+reg_data$MEAN_DEBT <- as.numeric(reg_data$MEAN_DEBT)
+reg_data$COUNT <- as.numeric(reg_data$COUNT)
+
+Q1 <- quantile(reg_data$MEDIAN_DEBT, 0.25, na.rm = TRUE)
+Q3 <- quantile(reg_data$MEDIAN_DEBT, 0.75, na.rm = TRUE)
+IQR <- Q3 - Q1
+reg_data_filtered <- reg_data %>%
+  filter(MEDIAN_DEBT >= (Q1 - 1.5*IQR) & MEDIAN_DEBT <= (Q3 + 1.5*IQR))
+
+knitr::kable(head(reg_data, 10))
+cat("Total records after cleaning:", nrow(reg_data))
+```
+
+## Linear Regression Modelling
+
+```{r}
+lm_model <- lm(MEDIAN_DEBT ~ COUNT + MEAN_DEBT, data = reg_data)
+summary(lm_model)
+cat("R-squared:", round(summary(lm_model)$r.squared, 3))
+```
+
+## Coefficient Interpretation
+
+```{r}
+coef_data <- tidy(lm_model)
+ggplot(coef_data, aes(x = term, y = estimate)) +
+  geom_col(fill = "steelblue") +
+geom_errorbar(aes(ymin = estimate - std.error, ymax = estimate + std.error), width = 0.2) +
+  coord_flip() +
+  labs(
+title = "Regression Coefficients",
+x = "Term",
+y = "Estimate"
+  ) +
+  theme_minimal()
+```
+
+## Model Diagnostics
+
+```{r}
+par(mfrow = c(2, 2))
+plot(lm_model)
+```
+
+## Predicted vs Actual
+
+```{r}
+reg_data$pred <- predict(lm_model, newdata = reg_data)
+rmse <- sqrt(mean((reg_data$MEDIAN_DEBT - reg_data$pred)^2, na.rm = TRUE))
+ggplot(reg_data, aes(x = pred, y = MEDIAN_DEBT)) +  
+  geom_point(alpha = 0.5) +  
+  geom_abline(color = "red", linetype = "dashed") +  
+  labs(
+
+title = "Predicted vs Actual Median Debt",
+    subtitle = paste("RMSE:", round(rmse, 2)),
+    x = "Predicted",
+    y = "Actual"
+  ) +
+  theme_minimal()
+```
+
+## Correlation Matrix
+
+```{r}
+cor_data <- reg_data %>%
+  select(MEDIAN_DEBT, MEAN_DEBT, COUNT) %>%
+
+cor(use = "complete.obs")
+corrplot(cor_data, method = "circle", type = "upper",
+        addCoef.col = "black", tl.col = "black", tl.srt = 45)
+```
+
+## Key Predictors of Student Debt 
+
+```{r}
+coef_data <- tidy(lm_model) %>%
+  filter(term != "(Intercept)") %>%  # Remove intercept for clarity
+  arrange(desc(abs(estimate)))       # Sort by effect size
+
+head(coef_data, 10)
+
+top_predictors <- coef_data %>% slice_max(abs(estimate), n = 10)
+
+ggplot(top_predictors, aes(x = reorder(term, estimate), y = estimate)) +
+  geom_col(fill = "darkorange") +
+  geom_errorbar(aes(ymin = estimate - std.error, ymax = estimate + std.error),
+                width = 0.2, color = "black") +
+  coord_flip() +
+  labs(
+    title = "Top Predictors of Median Student Debt",
+    subtitle = "Based on Linear Regression Coefficients",
+    x = "Variable",
+    y = "Effect on Median Debt"
+  ) +
+  theme_minimal()
+```
+
+## Credential Level Distribution
+
+```{r}
+reg_data %>%
+  mutate(CRED_LEVEL = factor(CRED_LEVEL)) %>%
+
+ggplot(aes(x = CRED_LEVEL, y = MEDIAN_DEBT, fill = CRED_LEVEL)) + geom_boxplot()+
+stat_summary(fun = "mean", geom = "point", shape = 23, size = 3, fill = "white") +
+  labs(
+title = "Median Debt by Credential Level",
+x = "Credential Level",
+y = "Median Debt"
+) +
+scale_y_continuous(labels = dollar_format()) +
+theme_minimal()
+```
+
+## Top Programs by Debt
+
+```{r}
+top_programs <- reg_data %>%
+  group_by(PROGRAM) %>%
+
+summarize(
+  avg_debt = median(MEDIAN_DEBT, na.rm = TRUE),
+  count = n()
+) %>%
+  filter(count >= 5) %>%
+  arrange(desc(avg_debt)) %>%
+  head(10)
+
+ggplot(top_programs, aes(x = reorder(PROGRAM, avg_debt), y = avg_debt)) +
+geom_col(fill = "steelblue") +
+  coord_flip()
+
+labs(
+  title = "Top 10 Programs by Average Median Debt",
+  x = "Program",
+  y = "Average Median Debt"
+)+ 
+  scale_y_continuous(labels = dollar_format()) + 
+  theme_minimal()
+```
+
+## Test Influence of Program Size on Debt
+
+```{r}
+ggplot(reg_data, aes(x = COUNT, y = MEDIAN_DEBT)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(
+    title = "Effect of Program Size on Median Student Debt",
+    x = "Number of Students (Program Size)",
+    y = "Median Debt"
+  ) +
+  scale_y_continuous(labels = dollar_format()) +
+  theme_minimal()
+```
