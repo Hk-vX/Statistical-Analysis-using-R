@@ -1,51 +1,21 @@
-This project analyzes the surprising results observed in a major bank’s new product rollout. Initially, clients who received 
-face-to-face presentations appeared to have lower forecasted profits than those who didn’t. Using statistical and machine learning methods, 
-the analysis uncovers whether this difference was due to the presentation itself or underlying client characteristics.
-
-📂 Files Included
-client_presentation_analysis.Rmd: Main RMarkdown file with code, analysis, and narrative report.
-
-client_data.csv: Input dataset containing client demographics, income, presentation exposure, and profitability.
-
-output_report.html or output_report.pdf: Final rendered report with results and visualizations.
-
-📌 Dataset Description
-The dataset includes 500 clients and the following variables:
-
-Client_ID: Unique identifier
-
-Profit: Forecasted annual profit (USD)
-
-Presentation: Binary (1 = received presentation, 0 = did not)
-
-Age: Client age
-
-Gender: Categorical (M/F)
-
-Monthly_Income: Income in USD
+This project analyzes the surprising results observed in a major bank’s new product rollout. Initially, clients who received face-to-face presentations appeared to have lower forecasted profits than those who didn’t. Using statistical and machine learning methods, the analysis uncovers whether this difference was due to the presentation itself or underlying client characteristics.
 
 ⚙️ Methods Used
-1. Exploratory Data Analysis (EDA)
-Visualized distributions of profits by presentation status and demographic segments.
+1. Exploratory Data Analysis (EDA): Visualized distributions of profits by presentation status and demographic segments.
 
-2. Regression Analysis
-Multiple linear regression model to assess presentation impact, controlling for age, gender, and income.
+2. Regression Analysis: Multiple linear regression model to assess presentation impact, controlling for age, gender, and income.
 
 Found presentation had positive impact on profit after adjusting for income.
 
-3. Classification Models
-K-Nearest Neighbors (KNN): 68% accuracy in predicting presentation exposure.
+3. Classification Models: 
+- K-Nearest Neighbors (KNN): 68% accuracy in predicting presentation exposure.
+- Decision Tree: Showed lower-income clients were more likely to receive presentations.
 
-Decision Tree: Showed lower-income clients were more likely to receive presentations.
-
-4. Clustering (Unsupervised Learning)
-K-Means Clustering identified 3 client segments based on Age, Income, and Profit.
-
-Helped uncover biases in presentation targeting.
+4. Clustering (Unsupervised Learning):
+- K-Means Clustering identified 3 client segments based on Age, Income, and Profit.
+- Helped uncover biases in presentation targeting.
 
 💡 Key Findings
-Raw average profit was misleading due to income-based confounding.
-
-Presentations increase profitability when controlled for other variables.
-
-Bank may be over-targeting low-income clients for presentations.
+- Raw average profit was misleading due to income-based confounding.
+- Presentations increase profitability when controlled for other variables.
+- Bank may be over-targeting low-income clients for presentations.
