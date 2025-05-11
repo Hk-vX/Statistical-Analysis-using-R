@@ -21,11 +21,11 @@ This project investigates the impact of academic program types, credential level
 
 📦 R Libraries Used
 
-- **tidyverse** (dplyr, ggplot2, tidyr, etc.) – data wrangling and plotting  
-- **readr** – reading CSV files  
-- **broom** – model output tidying  
-- **pROC** – ROC curve and AUC evaluation  
-- **forcats**, **stringr**, **scales** – categorical and text handling  
+- tidyverse (dplyr, ggplot2, tidyr, etc.) – data wrangling and plotting  
+- readr – reading CSV files  
+- broom – model output tidying  
+- pROC – ROC curve and AUC evaluation  
+- forcats, stringr, scales – categorical and text handling  
 
 💡 Use Cases
 
