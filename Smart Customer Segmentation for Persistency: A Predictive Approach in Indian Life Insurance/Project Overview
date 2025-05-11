@@ -1,0 +1,34 @@
+This project presents a real-world data analytics and modeling case study focused on improving customer persistency (retention) in the 
+Indian life insurance sector. Photon Life Insurance (PLI), in collaboration with Concentrix Corporation (CNX), used predictive modeling to 
+identify at-risk policyholders and design a targeted contact strategy to reduce policy lapses.
+
+🔍 Objectives
+Analyze factors affecting customer retention and policy lapse.
+
+Build a logistic regression model to predict lapse probability.
+
+Segment customers into risk tiers (High, Medium, Low).
+
+Develop a contact strategy based on customer risk.
+
+Quantify the business impact in terms of improved persistency and reduced operational cost.
+
+🧰 Tools & Technologies
+Programming Language: Python / R
+
+Statistical Techniques: Logistic Regression, ROC Curve, AUC Score
+
+Data Visualization: Matplotlib, ggplot2, Tableau (optional)
+
+Data Handling: Pandas, dplyr, Excel
+
+Deployment: Jupyter Notebooks, RMarkdown
+
+📈 Key Findings
+Over 2.3 million policyholders analyzed.
+
+Predictive model accurately identified high-risk segments.
+
+Resulted in 10% improvement in customer persistency.
+
+Better resource allocation between internal and external contact centers.
