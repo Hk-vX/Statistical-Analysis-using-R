@@ -2,52 +2,31 @@
 This project explores how geographic and temporal factors influence global agricultural commodity prices, using data from the Food and Agriculture Organization (FAO). The narrative follows Sofia, a data-savvy agricultural economist, as she investigates regional disparities and temporal patterns in producer prices to support farmers and policymakers.
 
 📌 Project Objectives
-Analyze the effect of geographic region on commodity values
 
-Examine temporal trends in agricultural prices over multiple years
-
-Model the combined influence of region and time using regression
-
-Identify price extremes across countries and possible underlying causes
-
-Evaluate whether statistical models can help forecast commodity prices
+- Analyze the effect of geographic region on commodity values
+- Examine temporal trends in agricultural prices over multiple years
+- Model the combined influence of region and time using regression
+- Identify price extremes across countries and possible underlying causes
+- Evaluate whether statistical models can help forecast commodity prices
 
 🛠 Key Features
-Web scraping implementation (with rvest) to automate data collection from the FAO website
-
-Data cleaning and outlier filtering for robust analysis
-
-Exploratory Data Analysis (EDA) using ggplot2 and dplyr
-
-Regional and temporal comparisons via descriptive statistics and boxplots
-
-Support for dynamic storytelling through RMarkdown narrative blending data science and human context
-
-📂 Project Structure
-global_commodity_values.csv: Core dataset from FAO (manually or programmatically obtained)
-
-commodity_analysis.Rmd: RMarkdown document with full analysis and visualization
-
-README.md: Project overview
-
-(Optional) fao_scraped_prices.csv: Scraped data saved for reproducibility
+- Web scraping implementation (with rvest) to automate data collection from the FAO website
+- Data cleaning and outlier filtering for robust analysis
+- Exploratory Data Analysis (EDA) using ggplot2 and dplyr
+- Regional and temporal comparisons via descriptive statistics and boxplots
+- Support for dynamic storytelling through RMarkdown narrative blending data science and human context
 
 📦 R Libraries Used
-rvest, xml2, httr: For web scraping
 
-dplyr, tidyr, stringr: Data manipulation
-
-ggplot2, scales, forcats, RColorBrewer: Visualization
-
-broom, corrplot: Statistical modeling support
-
-readr: Reading/writing CSV files
+- rvest, xml2, httr: For web scraping
+- dplyr, tidyr, stringr: Data manipulation
+- ggplot2, scales, forcats, RColorBrewer: Visualization
+- broom, corrplot: Statistical modeling support
+- readr: Reading/writing CSV files
 
 💡 Use Cases
-Academic research on agricultural economics
 
-Policy formulation and subsidy allocation
-
-Educational storytelling with real-world data
-
-Community empowerment through data-driven insights
+- Academic research on agricultural economics
+- Policy formulation and subsidy allocation
+- Educational storytelling with real-world data
+- Community empowerment through data-driven insights
