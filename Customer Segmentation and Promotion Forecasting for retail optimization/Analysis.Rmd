@@ -1,0 +1,68 @@
+---
+title: "Analysis"
+output: word_document
+date: "2025-03-16"
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(caret)
+library(randomForest)
+```
+
+## Data Loading and Preprocessing
+
+```{r data-load}
+data <- read.csv("customer_data.csv")
+str(data)
+data <- na.omit(data) # Remove missing values
+```
+
+## Unsupervised Learning: Customer Segmentation with K-Means
+
+```{r kmeans-clustering}
+set.seed(123)
+customer_features <- data %>% dplyr::select(Income, MntWines, MntFruits, 
+                                    MntMeatProducts, MntFishProducts, 
+                                    MntSweetProducts, MntGoldProds)
+customer_scaled <- scale(customer_features)
+k_clusters <- kmeans(customer_scaled, centers = 3, nstart = 25)
+data$Cluster <- as.factor(k_clusters$cluster)
+
+fviz_cluster(list(data = customer_scaled, cluster = k_clusters$cluster))
+```
+
+## Supervised Learning: Predicting Promotion Response
+
+```{r split-data}
+set.seed(123)
+data$Response <- as.factor(data$Response)
+trainIndex <- createDataPartition(data$Response, p = 0.7, list = FALSE)
+trainData <- data[trainIndex, ]
+testData <- data[-trainIndex, ]
+```
+
+### Model 1: Logistic Regression
+
+```{r logistic-regression}
+log_model <- glm(Response ~ Income + NumDealsPurchases + NumWebPurchases + 
+                 NumCatalogPurchases + NumStorePurchases + NumWebVisitsMonth, 
+                 data = trainData, family = binomial)
+summary(log_model)
+pred_log <- predict(log_model, testData, type = "response")
+log_pred_class <- ifelse(pred_log > 0.5, 1, 0)
+confusionMatrix(as.factor(log_pred_class), testData$Response)
+```
+
+### Model 2: Random Forest
+
+```{r random-forest}
+rf_model <- randomForest(Response ~ Income + NumDealsPurchases + NumWebPurchases + 
+                         NumCatalogPurchases + NumStorePurchases + NumWebVisitsMonth,
+                         data = trainData, ntree = 500, mtry = 3)
+print(rf_model)
+rf_pred <- predict(rf_model, testData)
+confusionMatrix(rf_pred, testData$Response)
+```
