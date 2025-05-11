@@ -1,0 +1,81 @@
+This project applies customer analytics and machine learning in R to improve the marketing and inventory strategies of Nata Supermarkets, a mid-sized Canadian 
+retail chain. Using three years of customer data, we:
+
+Segment customers based on purchasing behavior.
+
+Predict their responsiveness to promotions.
+
+🎯 Objectives 
+Use K-Means Clustering for customer segmentation.
+
+Apply Random Forest and Logistic Regression to predict promotional response.
+
+Generate insights to enhance marketing efficiency, inventory planning, and customer satisfaction.
+
+📂 Dataset Description
+Collected by Nata Supermarkets (2012–2014), the dataset includes:
+
+Demographics: Age, Income, Education, Marital Status, Dependents
+
+Transactions: Spending by product category (e.g., Wine, Fish), Purchase Frequency, Coupon Usage
+
+Promotional Response: Response (Yes/No) to past promotions
+
+Preprocessing in R
+Missing value imputation (tidyr, dplyr)
+
+Encoding categorical features
+
+Normalizing spending variables (scale)
+
+Removing duplicates and outliers
+
+🧠 Methodology
+1. Customer Segmentation
+Algorithm: K-Means Clustering
+
+Goal: Identify key customer types (e.g., price-sensitive, loyal, premium)
+
+2. Promotion Response Modeling
+Algorithms: randomForest, glm
+
+Performance:
+
+Accuracy: 85.37%
+
+Sensitivity: 95.74%
+
+Specificity: 26.26%
+
+📊 Key Insights
+Three distinct segments: budget-conscious, loyal, and premium shoppers
+
+Moderate spenders were most responsive to personalized promotions
+
+Random Forest outperformed Logistic Regression in classification balance
+
+Custom promotions increased overall campaign effectiveness
+
+📈 Visualizations
+Cluster plots using ggplot2
+
+Confusion matrix and ROC curves using caret and pROC
+
+📌 Business Implications
+Enables targeted, cost-efficient marketing campaigns
+
+Improves inventory accuracy by anticipating demand
+
+Increases customer retention through personalization
+
+🔮 Future Directions
+Integrate real-time transaction tracking
+
+Use advanced ML models like xgboost or keras for deeper insights
+
+Include external variables like seasonality and economic conditions
+
+🛠️ Tools & Libraries
+R (v4.3+)
+
+tidyverse, cluster, randomForest, caret, pROC, ggplot2, factoextra
