@@ -1,0 +1,113 @@
+---
+title: 'Evaluating Client Presentation Effectiveness in Retail Banking'
+author: "Your Name"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(readxl)
+library(caret)
+library(class)
+library(e1071)
+library(rpart)
+library(rpart.plot)
+library(factoextra)
+```
+
+## 1. Load and Check Data
+
+```{r}
+data <- read_excel("Bank_dataset.xlsx", sheet = 1)
+
+print(head(data))
+
+print(colnames(data))
+
+print(dim(data))
+```
+
+## 2. Data Preparation and Conversion
+
+```{r}
+data$Presentation <- as.factor(data$Presentation)
+data$Gender <- as.factor(data$Gender)
+
+names(data) <- str_trim(names(data))
+
+print(head(data))
+```
+
+## 3. Exploratory Data Analysis (EDA)
+
+```{r}
+ggplot(data, aes(x = Presentation, y = Profit, fill = Presentation)) +
+  geom_boxplot() +
+  labs(title = "Profit by Presentation", y = "Profit")
+
+ggplot(data, aes(x = Gender, y = Profit, fill = Presentation)) +
+  geom_boxplot(position = "dodge") +
+  labs(title = "Profit by Gender and Presentation", y = "Profit")
+```
+
+## 4. Regression Analysis (Supervised Learning)
+
+```{r}
+model_lm <- lm(Profit ~ Presentation + Age + Gender + `Monthly Income`, data = data)
+summary(model_lm)
+```
+
+## 5. K-Nearest Neighbors (KNN Classification)
+
+```{r}
+df_knn <- data %>%
+  mutate(Gender = as.numeric(Gender)) %>%
+  select(Presentation, Age, Gender, `Monthly Income`, Profit) %>%
+  drop_na()
+
+df_knn[, 2:5] <- scale(df_knn[, 2:5])
+
+set.seed(123)
+train_idx <- sample(nrow(df_knn), 0.7 * nrow(df_knn))
+train <- df_knn[train_idx, ]
+test <- df_knn[-train_idx, ]
+
+knn_pred <- knn(train[, 2:5], test[, 2:5], train$Presentation, k = 5)
+
+confusionMatrix(knn_pred, test$Presentation)
+```
+
+## 6. Decision Tree
+
+```{r}
+tree_model <- rpart(Presentation ~ Age + Gender + `Monthly Income` + Profit, data = data, method = "class")
+rpart.plot(tree_model, type = 2, extra = 104, fallen.leaves = TRUE)
+```
+
+## 7. Cluster Analysis (Unsupervised Learning)
+
+```{r}
+df_cluster <- data %>%
+  select(Age, `Monthly Income`, Profit) %>%
+  drop_na()
+
+df_scaled <- scale(df_cluster)
+
+set.seed(123)
+kmeans_model <- kmeans(df_scaled, centers = 3)
+data$Cluster <- factor(kmeans_model$cluster)
+
+fviz_cluster(kmeans_model, data = df_scaled)
+```
+
+## 8. Conclusion
+
+This case study used both supervised and unsupervised learning techniques to investigate why clients who received a product presentation had lower average profitability.
+
+**Findings:**
+- Regression shows potential confounding variables such as age, gender, or income.
+- KNN and decision trees attempt classification based on client profile.
+- Clustering may reveal hidden client segments with distinct behaviors.
