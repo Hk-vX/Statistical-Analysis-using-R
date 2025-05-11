@@ -1,1 +1,35 @@
+# 🎓 Student Debt Analysis: Unveiling Financial Burdens in Higher Education 💸
 
+This project investigates the impact of academic program types, credential levels, and institutional characteristics on student debt using U.S. College Scorecard data. Through the lens of Maya, an education policy analyst passionate about equity in higher education, the study explores patterns in student loan burdens and provides data-driven insights to aid students, institutions, and policymakers.
+
+## 📌 Project Objectives
+
+- Identify key variables that influence student loan amounts  
+- Compare average debt levels across degree types and fields of study  
+- Assess how credential levels (Associate, Bachelor, etc.) impact debt  
+- Analyze whether program size or institution type affects borrowing  
+- Model and forecast student debt outcomes using statistical methods  
+
+## 🛠 Key Features
+
+- 📥 Integration of College Scorecard data for nationwide coverage  
+- 🧼 Data cleaning and wrangling to ensure quality analysis  
+- 📊 Visualizations using `ggplot2` to explore debt distributions  
+- 🧠 Regression modeling for predicting debt outcomes  
+- 📈 ROC and AUC analysis to evaluate classification performance  
+- 🧵 Narrative-driven RMarkdown report combining analysis and storytelling  
+
+## 📦 R Libraries Used
+
+- **tidyverse** (dplyr, ggplot2, tidyr, etc.) – data wrangling and plotting  
+- **readr** – reading CSV files  
+- **broom** – model output tidying  
+- **pROC** – ROC curve and AUC evaluation  
+- **forcats**, **stringr**, **scales** – categorical and text handling  
+
+## 💡 Use Cases
+
+- 🎓 Education research and institutional planning  
+- 🧮 Financial aid policy development  
+- 📘 Student guidance for debt-informed career decisions  
+- 📚 Teaching example for data science and public policy  
