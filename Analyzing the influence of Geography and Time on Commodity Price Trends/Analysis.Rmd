@@ -1,0 +1,396 @@
+---
+title: "Evaluating the Impact on Commodity Value"
+---
+
+```{r setup, include=FALSE}
+library(rvest)
+library(dplyr)
+library(stringr)
+library(readr)
+library(xml2)
+library(ggplot2)
+library(broom)
+library(tidyr)
+library(corrplot)
+library(scales)
+library(forcats)
+library(RColorBrewer)
+library(httr)
+```
+
+## Loading the Dataset
+
+```{r, eval=TRUE}
+fao_data <- read_csv("global_commodity_values.csv")
+```
+
+## Data Cleaning and Preparation
+
+The data was initially cleaned prior to analysis to ensure data quality and consistency. Missing value handling, unit standardization, and outlier detection were part of the process.
+
+```{r data_cleaning, eval=TRUE}
+clean_data <- function(data) {
+  cat("Beginning data cleaning process...\n")
+  
+  original_count <- nrow(data)
+  cat("Original data contains", original_count, "records\n")
+  
+  cleaned <- data %>%
+    select(
+      area_code = `Area Code`,
+      area_m49 = `Area Code (M49)`,
+      area = Area,
+      item_code = `Item Code`,
+      item_cpc = `Item Code (CPC)`,
+      item = Item,
+      element_code = `Element Code`,
+      element = Element,
+      year_code = `Year Code`,
+      year = Year,
+      unit = Unit,
+      value = Value,
+      flag = Flag
+    ) %>%
+    filter(element == "Producer Price (LCU/tonne)") %>%
+    filter(!is.na(value)) %>%
+    mutate(
+      year = as.numeric(year),
+      value = as.numeric(value)
+    )
+  
+  after_basic_clean <- nrow(cleaned)
+  cat("After removing non-price data and missing values:", after_basic_clean, "records remain\n")
+  cat("Removed", original_count - after_basic_clean, "records (", round((original_count - after_basic_clean)/original_count*100, 1), "%)\n")
+  
+  Q1 <- quantile(cleaned$value, 0.25, na.rm = TRUE)
+  Q3 <- quantile(cleaned$value, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  
+  cat("\nOutlier detection statistics:\n")
+  cat("25th percentile (Q1):", Q1, "\n")
+  cat("75th percentile (Q3):", Q3, "\n")
+  cat("Interquartile range (IQR):", IQR, "\n")
+  cat("Lower outlier threshold:", Q1 - 1.5*IQR, "\n")
+  cat("Upper outlier threshold:", Q3 + 1.5*IQR, "\n")
+  
+  cleaned_filtered <- cleaned %>%
+    filter(value >= (Q1 - 1.5*IQR) & value <= (Q3 + 1.5*IQR))
+  
+  final_count <- nrow(cleaned_filtered)
+  cat("\nAfter removing outliers:", final_count, "records remain\n")
+  cat("Removed", after_basic_clean - final_count, "outliers (", round((after_basic_clean - final_count)/after_basic_clean*100, 1), "% of cleaned data)\n")
+  
+  return(cleaned_filtered)
+}
+
+cleaned_fao_data <- clean_data(fao_data)
+
+if(exists("fao_scraped_data")) {
+  cleaned_scraped_data <- clean_data(fao_scraped_data)
+    overlap_years <- intersect(unique(cleaned_fao_data$year), unique(cleaned_scraped_data$year))
+  
+  if(length(overlap_years) > 0) {
+    cat("Found", length(overlap_years), "overlapping years between datasets\n")
+    
+    cleaned_fao_data <- cleaned_fao_data %>%
+      filter(!(year %in% overlap_years)) %>%
+      bind_rows(cleaned_scraped_data)
+    
+    cat("Combined dataset now contains", nrow(cleaned_fao_data), "records\n")
+  } else {
+    cleaned_fao_data <- bind_rows(cleaned_fao_data, cleaned_scraped_data)
+    cat("Appended scraped data. Combined dataset now contains", nrow(cleaned_fao_data), "records\n")
+  }
+}
+
+cat("\nSummary of clean commodity value data (LCU/tonne):\n")
+summary(cleaned_fao_data$value)
+
+if (nrow(cleaned_fao_data) > 1 && length(unique(cleaned_fao_data$value)) > 1) {
+  hist(cleaned_fao_data$value, 
+       main = "Distribution of Commodity Values After Cleaning",
+       xlab = "Value (LCU/tonne)", 
+       col = "steelblue", 
+       border = "white")
+} else {
+  cat("\nNot enough variability in the data to plot a histogram.\n")
+}
+```
+
+## Exploratory Data Analysis
+
+```{r exploratory_analysis, eval=TRUE}
+country_summary <- cleaned_fao_data %>%
+  group_by(area) %>%
+  summarize(
+    mean_value = mean(value, na.rm = TRUE),
+    median_value = median(value, na.rm = TRUE),
+    min_value = min(value, na.rm = TRUE),
+    max_value = max(value, na.rm = TRUE),
+    std_dev = sd(value, na.rm = TRUE),
+    n_observations = n()
+  ) %>%
+  arrange(desc(mean_value))
+
+head(country_summary, 10)
+
+commodity_summary <- cleaned_fao_data %>%
+  group_by(item) %>%
+  summarize(
+    mean_value = mean(value, na.rm = TRUE),
+    median_value = median(value, na.rm = TRUE),
+    min_value = min(value, na.rm = TRUE),
+    max_value = max(value, na.rm = TRUE),
+    std_dev = sd(value, na.rm = TRUE),
+    n_observations = n()
+  ) %>%
+  arrange(desc(mean_value))
+
+head(commodity_summary, 10)
+
+time_series_data <- cleaned_fao_data %>%
+  group_by(year) %>%
+  summarize(
+    mean_value = mean(value, na.rm = TRUE),
+    median_value = median(value, na.rm = TRUE),
+    n_observations = n()
+  )
+
+ggplot(time_series_data, aes(x = year, y = mean_value)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_point(color = "darkred", size = 2) +
+  labs(
+    title = "Average Commodity Value Over Time",
+    x = "Year",
+    y = "Mean Value (LCU/tonne)"
+  ) +
+  theme_minimal()
+```
+
+## Regional Analysis
+
+```{r regional_analysis, eval=TRUE}
+regional_analysis <- function(data) {
+  data_with_region <- data %>%
+    mutate(region = case_when(
+      area %in% c("United States of America", "Canada", "Mexico") ~ "North America",
+      area %in% c("Brazil", "Argentina", "Chile", "Colombia", "Peru") ~ "South America",
+      area %in% c("China", "India", "Japan", "Thailand", "Vietnam", "Indonesia") ~ "Asia",
+      area %in% c("Germany", "France", "United Kingdom", "Italy", "Spain") ~ "Europe",
+      area %in% c("Nigeria", "South Africa", "Egypt", "Ethiopia", "Kenya") ~ "Africa",
+      area %in% c("Australia", "New Zealand") ~ "Oceania",
+      TRUE ~ "Other"
+    ))
+  
+  region_stats <- data_with_region %>%
+    group_by(region) %>%
+    summarize(
+      mean_value = mean(value, na.rm = TRUE),
+      median_value = median(value, na.rm = TRUE),
+      min_value = min(value, na.rm = TRUE),
+      max_value = max(value, na.rm = TRUE),
+      std_dev = sd(value, na.rm = TRUE),
+      n_countries = n_distinct(area),
+      n_observations = n()
+    ) %>%
+    arrange(desc(mean_value))
+  
+  print(region_stats)
+  
+  ggplot(data_with_region, aes(x = reorder(region, value, FUN = median), y = value, fill = region)) + 
+    geom_boxplot(alpha = 0.7) +
+    stat_summary(fun = "mean", geom = "point", shape = 23, size = 3, fill = "white") +
+    scale_fill_brewer(palette = "Set2") +
+    labs(
+      title = "Regional Variations in Commodity Values",
+      subtitle = "Comparing Values Across Continental Regions",
+      x = "Region",
+      y = "Value (LCU/tonne)",
+      caption = "White diamonds represent mean values"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none"
+    )
+}
+
+regional_analysis(cleaned_fao_data)
+```
+
+## Commodity Comparison
+
+```{r commodity_comparison, eval=TRUE}
+commodity_comparison <- function(data) {
+  top_commodities <- data %>%
+    group_by(item) %>%
+    summarize(count = n()) %>%
+    arrange(desc(count)) %>%
+    slice(1:10) %>%
+    pull(item)
+  
+  top_data <- data %>%
+    filter(item %in% top_commodities)
+  
+  ggplot(top_data, aes(x = reorder(item, value, FUN = median), y = value, fill = item)) + 
+    geom_boxplot(alpha = 0.7) +
+    stat_summary(fun = "mean", geom = "point", shape = 23, size = 3, fill = "white") +
+    scale_fill_brewer(palette = "Set3") +
+    labs(
+      title = "Commodity Value Comparison",
+      subtitle = "Values for Top 10 Most Frequently Reported Commodities",
+      x = "Commodity",
+      y = "Value (LCU/tonne)"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none"
+    )
+}
+
+commodity_comparison(cleaned_fao_data)
+```
+
+## Statistical Modelling
+
+```{r regression_analysis, eval=TRUE}
+regression_analysis <- function(data) {
+  cat("Building a statistical model to uncover patterns in commodity values...\n")
+  
+  model_data <- data %>%
+    group_by(area, year) %>%
+    summarize(
+      mean_value = mean(value, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  cat("Data prepared with", nrow(model_data), "country-year observations\n")
+  
+  num_countries <- length(unique(model_data$area))
+  cat("Number of unique countries in model data:", num_countries, "\n")
+  
+  if (num_countries < 2) {
+    cat("Not enough countries to include 'area' as a predictor. Regression aborted.\n")
+    return(NULL)
+  }
+  
+  cat("\nSummary of mean commodity value by country-year:\n")
+  summary(model_data$mean_value)
+  
+  cat("\nFitting regression model to predict commodity values based on country and year...\n")
+  lm_model <- lm(mean_value ~ area + year, data = model_data)
+  
+  r_squared <- summary(lm_model)$r.squared
+  adj_r_squared <- summary(lm_model)$adj.r.squared
+  
+  cat("Model fitted successfully!\n")
+  cat("R-squared:", round(r_squared, 3), "\n")
+  cat("Adjusted R-squared:", round(adj_r_squared, 3), "\n")
+  cat("This means the model explains approximately", round(r_squared*100, 1), "% of the variation in commodity values\n")
+  
+  year_pvalue <- summary(lm_model)$coefficients["year", "Pr(>|t|)"]
+  cat("\nIs time a significant factor in commodity values?\n")
+  if(year_pvalue < 0.05) {
+    year_coef <- summary(lm_model)$coefficients["year", "Estimate"]
+    direction <- ifelse(year_coef > 0, "increasing", "decreasing")
+    cat("Yes! The model shows a statistically significant", direction, "trend over time (p-value:", format(year_pvalue, scientific=TRUE), ")\n")
+  } else {
+    cat("No clear global trend over time was found (p-value:", format(year_pvalue, scientific=TRUE), ")\n")
+  }
+  
+  country_coeffs <- summary(lm_model)$coefficients[grep("^area", rownames(summary(lm_model)$coefficients)), ]
+  significant_countries <- rownames(country_coeffs)[country_coeffs[, "Pr(>|t|)"] < 0.05]
+  
+  cat("\nCountries with statistically significant different commodity value patterns:", length(significant_countries), "\n")
+  if(length(significant_countries) > 0) {
+    top_countries <- head(significant_countries, 5)
+    cat("Top 5 examples:", paste(gsub("^area", "", top_countries), collapse=", "), "\n")
+  }
+  
+  par(mfrow = c(2, 2))
+  plot(lm_model)
+  par(mfrow = c(1, 1))
+  
+  return(list(model = lm_model, data = model_data))
+}
+
+reg_results <- regression_analysis(cleaned_fao_data)
+```
+
+## Temporal Pattern Analysis
+
+```{r temporal_analysis, eval=TRUE}
+temporal_analysis <- function(data) {
+  yoy_data <- data %>%
+    group_by(year) %>%
+    summarize(mean_value = mean(value, na.rm = TRUE), .groups = "drop") %>%
+    arrange(year) %>%
+    mutate(
+      prev_year_value = lag(mean_value),
+      yoy_change_pct = (mean_value - prev_year_value) / prev_year_value * 100
+    ) %>%
+    filter(!is.na(yoy_change_pct))
+  
+  ggplot(yoy_data, aes(x = year, y = yoy_change_pct, fill = yoy_change_pct > 0)) +
+    geom_col() +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    scale_fill_manual(values = c("firebrick", "steelblue"), guide = "none") +
+    labs(
+      title = "Year-over-Year % Change in Global Commodity Values",
+      x = "Year",
+      y = "YoY Change (%)"
+    ) +
+    theme_minimal()
+  
+  first_year <- min(yoy_data$year, na.rm = TRUE)
+  last_year <- max(yoy_data$year, na.rm = TRUE)
+  first_value <- yoy_data$mean_value[yoy_data$year == first_year]
+  last_value <- yoy_data$mean_value[yoy_data$year == last_year]
+  
+  years_diff <- last_year - first_year
+  if (years_diff > 0 && first_value > 0) {
+    cagr <- (((last_value / first_value)^(1/years_diff)) - 1) * 100
+    cat("Compound Annual Growth Rate (CAGR):", round(cagr, 2), "% per year\n")
+  }
+  
+  volatility <- sd(yoy_data$yoy_change_pct, na.rm = TRUE)
+  cat("Value volatility (standard deviation of YoY changes):", round(volatility, 2), "%\n")
+  
+  return(last_plot())
+}
+
+temporal_analysis(cleaned_fao_data)
+```
+
+## Correlation Analysis
+
+```{r correlation_analysis, eval=TRUE}
+correlation_analysis <- function(data) {
+  wide_data <- data %>%
+    group_by(area, year) %>%
+    summarize(mean_value = mean(value, na.rm = TRUE), .groups = "drop") %>%
+    pivot_wider(
+      names_from = year,
+      values_from = mean_value,
+      names_prefix = "year_"
+    ) %>%
+    select(-area) %>%
+    select(where(~ !all(is.na(.))))
+  
+  if (ncol(wide_data) < 2) {
+    cat("Insufficient data for correlation analysis\n")
+    return(NULL)
+  }
+  
+  cor_matrix <- cor(wide_data, use = "pairwise.complete.obs")
+  
+  corrplot(cor_matrix, method = "circle", type = "upper",
+           addCoef.col = "black", tl.col = "black", tl.srt = 45,
+           title = "Correlation of Commodity Values Across Years")
+  
+  return(cor_matrix)
+}
+
+correlation_analysis(cleaned_fao_data)
+```
